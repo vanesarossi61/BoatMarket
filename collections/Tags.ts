@@ -1,42 +1,61 @@
-import type { CollectionConfig } from 'payload'
+import { CollectionConfig } from 'payload/types';
 
-export const Tags: CollectionConfig = {
+const Tags: CollectionConfig = {
   slug: 'tags',
+  labels: {
+    singular: 'Etiqueta',
+    plural: 'Etiquetas',
+  },
   admin: {
     useAsTitle: 'name',
-    defaultColumns: ['name', 'slug', 'group'],
-    group: 'Taxonomy',
+    defaultColumns: ['name', 'slug'],
+    group: 'Contenido',
   },
   access: {
     read: () => true,
-    create: ({ req: { user } }) => user?.role === 'admin',
-    update: ({ req: { user } }) => user?.role === 'admin',
-    delete: ({ req: { user } }) => user?.role === 'admin',
+    create: ({ req: { user } }) => !!user,
+    update: ({ req: { user } }) => !!user,
+    delete: ({ req: { user } }) => !!user,
   },
   fields: [
     {
       name: 'name',
       type: 'text',
       required: true,
+      unique: true,
+      label: 'Nombre',
+      admin: {
+        description: 'Nombre de la etiqueta (ej: "Motor fuera de borda")',
+      },
     },
     {
       name: 'slug',
       type: 'text',
-      required: true,
       unique: true,
-    },
-    {
-      name: 'group',
-      type: 'select',
-      options: [
-        { label: 'Feature', value: 'feature' },
-        { label: 'Activity', value: 'activity' },
-        { label: 'Material', value: 'material' },
-        { label: 'Style', value: 'style' },
-        { label: 'Other', value: 'other' },
-      ],
-      admin: { position: 'sidebar' },
+      label: 'Slug',
+      admin: {
+        position: 'sidebar',
+        readOnly: true,
+        description: 'Se genera automaticamente del nombre',
+      },
+      hooks: {
+        beforeValidate: [
+          ({ value, siblingData }) => {
+            if (!value && siblingData?.name) {
+              return (siblingData.name as string)
+                .toLowerCase()
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .replace(/[^a-z0-9]+/g, '-')
+                .replace(/^-|-$/g, '');
+            }
+            return value;
+          },
+        ],
+      },
     },
   ],
   timestamps: true,
-}
+};
+
+export default Tags;
