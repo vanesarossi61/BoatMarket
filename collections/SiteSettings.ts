@@ -1,194 +1,137 @@
-// =============================================
-// BOATMARKET - Site Settings (Payload CMS Global)
-// Global configuration for the marketplace
-// =============================================
+import { GlobalConfig } from 'payload/types';
 
-import type { GlobalConfig } from 'payload'
-
-export const SiteSettings: GlobalConfig = {
+const SiteSettings: GlobalConfig = {
   slug: 'site-settings',
+  label: 'Configuracion del Sitio',
+  admin: {
+    group: 'Configuracion',
+  },
   access: {
     read: () => true,
-    update: ({ req: { user } }) => user?.role === 'admin',
+    update: ({ req: { user } }) => !!user,
   },
   fields: [
-    // ---- General ----
+    // ── Informacion General ──
     {
-      name: 'general',
+      name: 'siteName',
+      type: 'text',
+      label: 'Nombre del sitio',
+      defaultValue: 'BoatMarket',
+    },
+    {
+      name: 'tagline',
+      type: 'text',
+      label: 'Eslogan',
+      defaultValue: 'El marketplace nautico de Argentina',
+    },
+    {
+      name: 'contactEmail',
+      type: 'email',
+      label: 'Email de contacto',
+    },
+    {
+      name: 'contactPhone',
+      type: 'text',
+      label: 'Telefono de contacto',
+    },
+    {
+      name: 'address',
+      type: 'textarea',
+      label: 'Direccion',
+    },
+
+    // ── Redes Sociales ──
+    {
+      name: 'socialLinks',
       type: 'group',
+      label: 'Redes Sociales',
       fields: [
         {
-          name: 'siteName',
+          name: 'facebook',
           type: 'text',
-          defaultValue: 'BoatMarket',
-          required: true,
+          label: 'Facebook',
+          admin: { placeholder: 'https://facebook.com/boatmarket' },
         },
         {
-          name: 'tagline',
+          name: 'instagram',
           type: 'text',
-          defaultValue: 'Premium Boat Marketplace',
+          label: 'Instagram',
+          admin: { placeholder: 'https://instagram.com/boatmarket' },
         },
         {
-          name: 'logo',
-          type: 'upload',
-          relationTo: 'media',
-        },
-        {
-          name: 'favicon',
-          type: 'upload',
-          relationTo: 'media',
-        },
-        {
-          name: 'contactEmail',
-          type: 'email',
-        },
-        {
-          name: 'contactPhone',
+          name: 'youtube',
           type: 'text',
+          label: 'YouTube',
+          admin: { placeholder: 'https://youtube.com/@boatmarket' },
+        },
+        {
+          name: 'twitter',
+          type: 'text',
+          label: 'Twitter / X',
+          admin: { placeholder: 'https://twitter.com/boatmarket' },
         },
       ],
     },
 
-    // ---- Social Media ----
-    {
-      name: 'social',
-      type: 'group',
-      fields: [
-        { name: 'facebook', type: 'text' },
-        { name: 'instagram', type: 'text' },
-        { name: 'youtube', type: 'text' },
-        { name: 'twitter', type: 'text' },
-        { name: 'linkedin', type: 'text' },
-      ],
-    },
-
-    // ---- SEO Defaults ----
+    // ── SEO ──
     {
       name: 'seo',
       type: 'group',
+      label: 'SEO',
       fields: [
         {
-          name: 'defaultMetaTitle',
+          name: 'defaultTitle',
           type: 'text',
-          maxLength: 70,
-          defaultValue: 'BoatMarket - Buy & Sell Boats Online',
+          label: 'Titulo por defecto',
+          defaultValue: 'BoatMarket - Embarcaciones y Productos Nauticos',
+          admin: {
+            description: 'Se usa cuando una pagina no define su propio titulo',
+          },
         },
         {
-          name: 'defaultMetaDescription',
+          name: 'defaultDescription',
           type: 'textarea',
-          maxLength: 160,
-          defaultValue: 'Find your dream boat on BoatMarket. Browse thousands of new and used boats, yachts, and sailboats from trusted dealers worldwide.',
+          label: 'Descripcion por defecto',
+          defaultValue:
+            'Compra y vende embarcaciones, lanchas, veleros y productos nauticos en Argentina. El marketplace nautico mas completo.',
+          admin: {
+            description: 'Meta description por defecto (max 160 caracteres)',
+          },
         },
         {
           name: 'ogImage',
           type: 'upload',
           relationTo: 'media',
-        },
-        {
-          name: 'googleAnalyticsId',
-          type: 'text',
-        },
-      ],
-    },
-
-    // ---- Listing Configuration ----
-    {
-      name: 'listings',
-      type: 'group',
-      fields: [
-        {
-          name: 'defaultCurrency',
-          type: 'select',
-          defaultValue: 'USD',
-          options: [
-            { label: 'USD', value: 'USD' },
-            { label: 'EUR', value: 'EUR' },
-            { label: 'GBP', value: 'GBP' },
-            { label: 'ARS', value: 'ARS' },
-          ],
-        },
-        {
-          name: 'maxImagesPerListing',
-          type: 'number',
-          defaultValue: 30,
-          min: 5,
-          max: 50,
-        },
-        {
-          name: 'requireApproval',
-          type: 'checkbox',
-          defaultValue: true,
-          admin: { description: 'Require admin approval for new listings' },
-        },
-        {
-          name: 'listingDuration',
-          type: 'number',
-          defaultValue: 90,
-          admin: { description: 'Default listing duration in days' },
-        },
-        {
-          name: 'featuredListingPrice',
-          type: 'number',
-          defaultValue: 49.99,
-          admin: { description: 'Price in USD to feature a listing' },
+          label: 'Imagen Open Graph',
+          admin: {
+            description: 'Imagen compartida en redes sociales (1200x630 recomendado)',
+          },
         },
       ],
     },
 
-    // ---- Footer ----
+    // ── Footer ──
     {
       name: 'footer',
       type: 'group',
+      label: 'Footer',
       fields: [
         {
-          name: 'columns',
-          type: 'array',
-          maxRows: 4,
-          fields: [
-            {
-              name: 'heading',
-              type: 'text',
-              required: true,
-            },
-            {
-              name: 'links',
-              type: 'array',
-              fields: [
-                { name: 'label', type: 'text', required: true },
-                { name: 'url', type: 'text', required: true },
-                {
-                  name: 'newTab',
-                  type: 'checkbox',
-                  defaultValue: false,
-                },
-              ],
-            },
-          ],
-        },
-        {
-          name: 'copyright',
-          type: 'text',
-          defaultValue: '(c) {year} BoatMarket. All rights reserved.',
-        },
-      ],
-    },
-
-    // ---- Maintenance ----
-    {
-      name: 'maintenance',
-      type: 'group',
-      fields: [
-        {
-          name: 'enabled',
-          type: 'checkbox',
-          defaultValue: false,
-        },
-        {
-          name: 'message',
+          name: 'aboutText',
           type: 'textarea',
-          defaultValue: 'We are currently performing maintenance. Please check back soon.',
+          label: 'Texto "Sobre nosotros"',
+          defaultValue:
+            'BoatMarket es la plataforma lider en compraventa de embarcaciones y productos nauticos en Argentina.',
+        },
+        {
+          name: 'copyrightText',
+          type: 'text',
+          label: 'Texto de copyright',
+          defaultValue: '© 2026 BoatMarket. Todos los derechos reservados.',
         },
       ],
     },
   ],
-}
+};
+
+export default SiteSettings;
