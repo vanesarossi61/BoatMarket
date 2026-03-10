@@ -1,38 +1,54 @@
-import type { CollectionConfig } from 'payload'
+import { CollectionConfig } from 'payload/types';
 
-export const Media: CollectionConfig = {
+const Media: CollectionConfig = {
   slug: 'media',
+  labels: {
+    singular: 'Archivo',
+    plural: 'Archivos',
+  },
   admin: {
-    defaultColumns: ['filename', 'alt', 'mimeType', 'filesize', 'createdAt'],
-    group: 'Content',
+    useAsTitle: 'alt',
+    group: 'Contenido',
   },
   access: {
     read: () => true,
     create: ({ req: { user } }) => !!user,
     update: ({ req: { user } }) => !!user,
-    delete: ({ req: { user } }) => user?.role === 'admin',
+    delete: ({ req: { user } }) => !!user,
   },
   upload: {
     staticDir: 'media',
-    mimeTypes: ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml', 'image/gif', 'application/pdf'],
+    mimeTypes: ['image/*'],
     imageSizes: [
       {
         name: 'thumbnail',
-        width: 300,
-        height: 200,
+        width: 400,
+        height: 300,
         position: 'centre',
+        formatOptions: {
+          format: 'webp',
+          options: { quality: 75 },
+        },
       },
       {
         name: 'card',
-        width: 640,
-        height: 480,
+        width: 800,
+        height: 600,
         position: 'centre',
+        formatOptions: {
+          format: 'webp',
+          options: { quality: 80 },
+        },
       },
       {
-        name: 'hero',
+        name: 'full',
         width: 1920,
         height: 1080,
         position: 'centre',
+        formatOptions: {
+          format: 'webp',
+          options: { quality: 85 },
+        },
       },
     ],
     adminThumbnail: 'thumbnail',
@@ -42,26 +58,21 @@ export const Media: CollectionConfig = {
       name: 'alt',
       type: 'text',
       required: true,
+      label: 'Texto alternativo',
+      admin: {
+        description: 'Descripcion de la imagen para accesibilidad y SEO',
+      },
     },
     {
       name: 'caption',
       type: 'text',
-    },
-    {
-      name: 'category',
-      type: 'select',
-      options: [
-        { label: 'Boat Photo', value: 'boat-photo' },
-        { label: 'Product Photo', value: 'product-photo' },
-        { label: 'Brand Logo', value: 'brand-logo' },
-        { label: 'Blog Image', value: 'blog-image' },
-        { label: 'Banner', value: 'banner' },
-        { label: 'Avatar', value: 'avatar' },
-        { label: 'Document', value: 'document' },
-        { label: 'Other', value: 'other' },
-      ],
-      admin: { position: 'sidebar' },
+      label: 'Pie de imagen',
+      admin: {
+        description: 'Texto opcional que aparece debajo de la imagen',
+      },
     },
   ],
   timestamps: true,
-}
+};
+
+export default Media;
