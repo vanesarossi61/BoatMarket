@@ -1,142 +1,67 @@
-// =============================================
-// BOATMARKET - Banners Collection (Payload CMS)
-// Promotional banners and hero sections
-// =============================================
+import { CollectionConfig } from 'payload/types';
 
-import type { CollectionConfig } from 'payload'
-
-export const Banners: CollectionConfig = {
+const Banners: CollectionConfig = {
   slug: 'banners',
+  labels: {
+    singular: 'Banner',
+    plural: 'Banners',
+  },
   admin: {
     useAsTitle: 'title',
-    defaultColumns: ['title', 'placement', 'isActive', 'startDate', 'endDate'],
-    group: 'Marketing',
+    defaultColumns: ['title', 'position', 'isActive', 'priority'],
+    group: 'Contenido',
   },
   access: {
     read: () => true,
-    create: ({ req: { user } }) => user?.role === 'admin',
-    update: ({ req: { user } }) => user?.role === 'admin',
-    delete: ({ req: { user } }) => user?.role === 'admin',
+    create: ({ req: { user } }) => !!user,
+    update: ({ req: { user } }) => !!user,
+    delete: ({ req: { user } }) => !!user,
   },
   fields: [
     {
       name: 'title',
       type: 'text',
       required: true,
-      maxLength: 100,
-    },
-    {
-      name: 'subtitle',
-      type: 'text',
-      maxLength: 200,
-    },
-    {
-      name: 'placement',
-      type: 'select',
-      required: true,
-      options: [
-        { label: 'Homepage Hero', value: 'hero' },
-        { label: 'Homepage Secondary', value: 'secondary' },
-        { label: 'Category Page', value: 'category' },
-        { label: 'Search Results', value: 'search' },
-        { label: 'Sidebar', value: 'sidebar' },
-        { label: 'Footer', value: 'footer' },
-      ],
+      label: 'Titulo',
+      admin: {
+        description: 'Titulo interno del banner (no visible al publico)',
+      },
     },
     {
       name: 'image',
       type: 'upload',
       relationTo: 'media',
       required: true,
-    },
-    {
-      name: 'mobileImage',
-      type: 'upload',
-      relationTo: 'media',
+      label: 'Imagen',
     },
     {
       name: 'link',
-      type: 'group',
-      fields: [
-        {
-          name: 'type',
-          type: 'select',
-          options: [
-            { label: 'Internal Page', value: 'internal' },
-            { label: 'External URL', value: 'external' },
-            { label: 'Boat Listing', value: 'boat' },
-            { label: 'Category', value: 'category' },
-          ],
-        },
-        {
-          name: 'url',
-          type: 'text',
-          admin: {
-            condition: (_, siblingData) => siblingData?.type === 'external',
-          },
-        },
-        {
-          name: 'page',
-          type: 'text',
-          admin: {
-            condition: (_, siblingData) => siblingData?.type === 'internal',
-          },
-        },
-        {
-          name: 'boat',
-          type: 'relationship',
-          relationTo: 'boats',
-          admin: {
-            condition: (_, siblingData) => siblingData?.type === 'boat',
-          },
-        },
-        {
-          name: 'category',
-          type: 'relationship',
-          relationTo: 'categories',
-          admin: {
-            condition: (_, siblingData) => siblingData?.type === 'category',
-          },
-        },
-        {
-          name: 'label',
-          type: 'text',
-          maxLength: 50,
-          admin: { description: 'CTA button text' },
-        },
+      type: 'text',
+      label: 'Enlace',
+      admin: {
+        description: 'URL de destino al hacer click en el banner',
+      },
+    },
+    {
+      name: 'position',
+      type: 'select',
+      required: true,
+      label: 'Posicion',
+      defaultValue: 'hero',
+      options: [
+        { label: 'Hero (principal)', value: 'hero' },
+        { label: 'Sidebar (lateral)', value: 'sidebar' },
+        { label: 'Footer (pie)', value: 'footer' },
       ],
     },
     {
-      name: 'overlay',
-      type: 'group',
-      admin: { description: 'Text overlay styling' },
-      fields: [
-        {
-          name: 'textColor',
-          type: 'select',
-          defaultValue: 'white',
-          options: [
-            { label: 'White', value: 'white' },
-            { label: 'Dark', value: 'dark' },
-          ],
-        },
-        {
-          name: 'position',
-          type: 'select',
-          defaultValue: 'center',
-          options: [
-            { label: 'Center', value: 'center' },
-            { label: 'Left', value: 'left' },
-            { label: 'Right', value: 'right' },
-            { label: 'Bottom Left', value: 'bottom-left' },
-          ],
-        },
-        {
-          name: 'darkOverlay',
-          type: 'checkbox',
-          defaultValue: true,
-        },
-      ],
+      name: 'isActive',
+      type: 'checkbox',
+      defaultValue: true,
+      label: 'Activo',
+      admin: {
+        description: 'Desactiva para ocultar sin eliminar',
+      },
     },
     {
       type: 'row',
@@ -144,26 +69,42 @@ export const Banners: CollectionConfig = {
         {
           name: 'startDate',
           type: 'date',
-          admin: { width: '50%' },
+          label: 'Fecha inicio',
+          admin: {
+            width: '50%',
+            date: {
+              pickerAppearance: 'dayOnly',
+              displayFormat: 'dd/MM/yyyy',
+            },
+          },
         },
         {
           name: 'endDate',
           type: 'date',
-          admin: { width: '50%' },
+          label: 'Fecha fin',
+          admin: {
+            width: '50%',
+            date: {
+              pickerAppearance: 'dayOnly',
+              displayFormat: 'dd/MM/yyyy',
+            },
+          },
         },
       ],
     },
     {
-      name: 'isActive',
-      type: 'checkbox',
-      defaultValue: true,
-      admin: { position: 'sidebar' },
-    },
-    {
       name: 'priority',
       type: 'number',
+      label: 'Prioridad',
       defaultValue: 0,
-      admin: { position: 'sidebar', description: 'Higher = shown first' },
+      admin: {
+        description: 'Mayor numero = se muestra primero',
+      },
+      min: 0,
+      max: 100,
     },
   ],
-}
+  timestamps: true,
+};
+
+export default Banners;
