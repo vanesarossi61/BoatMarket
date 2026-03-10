@@ -1,0 +1,1051 @@
+// =============================================
+// BOATMARKET - Prisma Schema
+// Database: PostgreSQL 16
+// Models: 25+ (User, Boat, Category, Tag, Brand,
+//   Product, Review, Inquiry, Order, etc.)
+// =============================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =============================================
+// ENUMS
+// =============================================
+
+enum UserRole {
+  ADMIN
+  DEALER
+  SELLER
+  BUYER
+}
+
+enum ListingStatus {
+  DRAFT
+  PENDING_REVIEW
+  ACTIVE
+  SOLD
+  EXPIRED
+  ARCHIVED
+  REJECTED
+}
+
+enum BoatCondition {
+  NEW
+  USED
+  CERTIFIED_PRE_OWNED
+  RESTORED
+}
+
+enum FuelType {
+  GASOLINE
+  DIESEL
+  ELECTRIC
+  HYBRID
+  NONE
+}
+
+enum HullMaterial {
+  FIBERGLASS
+  ALUMINUM
+  WOOD
+  PVC_HYPALON
+  CARBON_FIBER
+  STEEL
+  COMPOSITE
+}
+
+enum EngineType {
+  OUTBOARD
+  INBOARD
+  STERNDRIVE
+  JET
+  ELECTRIC
+  SAIL
+  NONE
+}
+
+enum EngineStroke {
+  TWO_STROKE
+  FOUR_STROKE
+}
+
+enum WaterType {
+  FRESHWATER
+  SALTWATER
+  BOTH
+}
+
+enum InquiryStatus {
+  NEW
+  READ
+  RESPONDED
+  CLOSED
+  SPAM
+}
+
+enum ReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  REFUNDED
+}
+
+enum TagGroup {
+  CONDITION
+  USAGE
+  WATER
+  FUEL
+  MATERIAL
+  FEATURED
+  CUSTOM
+}
+
+enum ProductType {
+  MOTOR
+  TRAILER
+  ELECTRONICS
+  SAFETY
+  DECK_ACCESSORIES
+  ANCHORING
+  MAINTENANCE
+  FISHING_GEAR
+  AUDIO
+  APPAREL
+  SPARE_PARTS
+}
+
+enum BannerPosition {
+  HOMEPAGE_HERO
+  HOMEPAGE_MID
+  SEARCH_TOP
+  SEARCH_SIDEBAR
+  DETAIL_BOTTOM
+  CATEGORY_TOP
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  STATUS_CHANGE
+  LOGIN
+  LOGOUT
+}
+
+enum AlertFrequency {
+  INSTANT
+  DAILY
+  WEEKLY
+}
+
+enum MessageStatus {
+  SENT
+  DELIVERED
+  READ
+}
+
+// =============================================
+// USERS
+// =============================================
+
+model User {
+  id              String    @id @default(cuid())
+  email           String    @unique
+  passwordHash    String?
+  name            String
+  phone           String?
+  avatar          String?
+  role            UserRole  @default(BUYER)
+  isVerified      Boolean   @default(false)
+  isActive        Boolean   @default(true)
+  emailVerifiedAt DateTime?
+  lastLoginAt     DateTime?
+
+  // Dealer/Seller specific
+  companyName     String?
+  companyLogo     String?
+  website         String?
+  description     String?
+  address         String?
+  city            String?
+  state           String?
+  country         String?
+  zipCode         String?
+  latitude        Float?
+  longitude       Float?
+  dealerBadge     String?
+  dealerSince     DateTime?
+
+  // Relations
+  boats           Boat[]
+  reviews         Review[]
+  inquiriesSent   Inquiry[]      @relation("InquiryBuyer")
+  inquiriesRecvd  Inquiry[]      @relation("InquirySeller")
+  favorites       Favorite[]
+  searchAlerts    SearchAlert[]
+  orders          Order[]
+  auditLogs       AuditLog[]
+  messagesSent    Message[]      @relation("MessageSender")
+  messagesRecvd   Message[]      @relation("MessageReceiver")
+  accounts        Account[]
+  sessions        Session[]
+
+  // SEO for dealer pages
+  slug            String?   @unique
+  metaTitle       String?
+  metaDescription String?
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([role])
+  @@index([city, state, country])
+  @@index([email])
+}
+
+// NextAuth.js models
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// =============================================
+// BOATS (50+ fields)
+// =============================================
+
+model Boat {
+  id              String        @id @default(cuid())
+  slug            String        @unique
+  status          ListingStatus @default(DRAFT)
+  isFeatured      Boolean       @default(false)
+  featuredUntil   DateTime?
+  viewCount       Int           @default(0)
+  inquiryCount    Int           @default(0)
+
+  // --- GENERAL ---
+  title           String
+  subtitle        String?
+  description     String        @db.Text
+  condition       BoatCondition
+  year            Int
+  hullId          String?
+
+  // --- PRICE ---
+  price           Decimal       @db.Decimal(12, 2)
+  priceNegotiable Boolean       @default(false)
+  priceDrop       Decimal?      @db.Decimal(12, 2)
+  priceDropDate   DateTime?
+  currency        String        @default("USD")
+  taxIncluded     Boolean       @default(false)
+  financingAvail  Boolean       @default(false)
+  monthlyEstimate Decimal?      @db.Decimal(10, 2)
+
+  // --- MAIN SPECIFICATIONS ---
+  lengthFt        Decimal       @db.Decimal(6, 2)
+  lengthM         Decimal?      @db.Decimal(6, 2)
+  beamFt          Decimal?      @db.Decimal(6, 2)
+  beamM           Decimal?      @db.Decimal(6, 2)
+  draftFt         Decimal?      @db.Decimal(6, 2)
+  draftM          Decimal?      @db.Decimal(6, 2)
+  weightLbs       Int?
+  weightKg        Int?
+  cabins          Int?
+  berths          Int?
+  heads           Int?
+  maxPassengers   Int?
+  fuelCapGal      Int?
+  fuelCapLt       Int?
+  waterCapGal     Int?
+  holdingCapGal   Int?
+  bridgeClearance Decimal?      @db.Decimal(6, 2)
+  deadrise        Decimal?      @db.Decimal(4, 1)
+
+  // --- HULL ---
+  hullMaterial    HullMaterial?
+  hullType        String?
+  hullColor       String?
+  deckMaterial    String?
+
+  // --- ENGINE ---
+  engineType      EngineType?
+  engineMake      String?
+  engineModel     String?
+  engineYear      Int?
+  engineHp        Int?
+  engineCount     Int?          @default(1)
+  totalHp         Int?
+  engineHours     Int?
+  engineStroke    EngineStroke?
+  fuelType        FuelType?
+  maxSpeedKnots   Int?
+  cruiseSpeedKnots Int?
+  propellerType   String?
+  driveType       String?
+
+  // --- ELECTRONICS ---
+  hasGps          Boolean       @default(false)
+  hasFishfinder   Boolean       @default(false)
+  hasRadar        Boolean       @default(false)
+  hasVhf          Boolean       @default(false)
+  hasAutopilot    Boolean       @default(false)
+  hasChartplotter Boolean       @default(false)
+  hasAis          Boolean       @default(false)
+  electronicsDesc String?       @db.Text
+
+  // --- EQUIPMENT ---
+  hasAirCond      Boolean       @default(false)
+  hasGenerator    Boolean       @default(false)
+  generatorHrs    Int?
+  hasBimini       Boolean       @default(false)
+  hasWindlass     Boolean       @default(false)
+  hasBowThruster  Boolean       @default(false)
+  hasSwimPlatform Boolean       @default(false)
+  hasLivewell     Boolean       @default(false)
+  hasStabilizers  Boolean       @default(false)
+  hasShorepower   Boolean       @default(false)
+  equipmentDesc   String?       @db.Text
+
+  // --- LOCATION ---
+  waterType       WaterType?
+  city            String?
+  state           String?
+  country         String        @default("US")
+  zipCode         String?
+  marina          String?
+  latitude        Float?
+  longitude       Float?
+
+  // --- SEO ---
+  metaTitle       String?
+  metaDescription String?
+  ogImage         String?
+  canonicalUrl    String?
+
+  // --- RELATIONS ---
+  sellerId        String
+  seller          User          @relation(fields: [sellerId], references: [id])
+  categoryId      String
+  category        Category      @relation(fields: [categoryId], references: [id])
+  brandId         String?
+  brand           Brand?        @relation(fields: [brandId], references: [id])
+  modelId         String?
+  model           BrandModel?   @relation(fields: [modelId], references: [id])
+  images          BoatImage[]
+  tags            BoatTag[]
+  reviews         Review[]
+  inquiries       Inquiry[]
+  favorites       Favorite[]
+  priceHistory    PriceHistory[]
+  compatProducts  ProductCompatibility[]
+
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  publishedAt     DateTime?
+  expiresAt       DateTime?
+
+  @@index([status, isFeatured])
+  @@index([categoryId])
+  @@index([brandId])
+  @@index([sellerId])
+  @@index([price])
+  @@index([year])
+  @@index([lengthFt])
+  @@index([city, state, country])
+  @@index([condition])
+  @@index([engineType])
+  @@index([fuelType])
+  @@index([createdAt])
+  @@index([publishedAt])
+}
+
+// =============================================
+// BOAT IMAGES
+// =============================================
+
+model BoatImage {
+  id            String  @id @default(cuid())
+  boatId        String
+  boat          Boat    @relation(fields: [boatId], references: [id], onDelete: Cascade)
+  url           String
+  thumbnailUrl  String?
+  alt           String?
+  caption       String?
+  sortOrder     Int     @default(0)
+  isPrimary     Boolean @default(false)
+  width         Int?
+  height        Int?
+
+  createdAt     DateTime @default(now())
+
+  @@index([boatId, sortOrder])
+}
+
+// =============================================
+// CATEGORIES (Hierarchical)
+// =============================================
+
+model Category {
+  id              String     @id @default(cuid())
+  name            String
+  slug            String     @unique
+  description     String?
+  longDescription String?    @db.Text
+  icon            String?
+  image           String?
+  sortOrder       Int        @default(0)
+  isActive        Boolean    @default(true)
+
+  // Hierarchy
+  parentId        String?
+  parent          Category?  @relation("CategoryTree", fields: [parentId], references: [id])
+  children        Category[] @relation("CategoryTree")
+  depth           Int        @default(0)
+
+  // SEO
+  metaTitle       String?
+  metaDescription String?
+  ogImage         String?
+  canonicalUrl    String?
+
+  // For product categories
+  isProductCategory Boolean  @default(false)
+  productType     ProductType?
+
+  boats           Boat[]
+  products        Product[]
+
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  @@index([parentId])
+  @@index([slug])
+  @@index([isProductCategory])
+}
+
+// =============================================
+// TAGS
+// =============================================
+
+model Tag {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  group     TagGroup
+  color     String?
+  icon      String?
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+
+  boats     BoatTag[]
+  products  ProductTag[]
+
+  createdAt DateTime @default(now())
+
+  @@index([group])
+}
+
+model BoatTag {
+  boatId String
+  tagId  String
+  boat   Boat @relation(fields: [boatId], references: [id], onDelete: Cascade)
+  tag    Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([boatId, tagId])
+}
+
+model ProductTag {
+  productId String
+  tagId     String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  tag       Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([productId, tagId])
+}
+
+// =============================================
+// BRANDS & MODELS
+// =============================================
+
+model Brand {
+  id              String       @id @default(cuid())
+  name            String
+  slug            String       @unique
+  logo            String?
+  website         String?
+  description     String?
+  longDescription String?      @db.Text
+  country         String?
+  foundedYear     Int?
+  isBoatBrand     Boolean      @default(true)
+  isEngineBrand   Boolean      @default(false)
+  isProductBrand  Boolean      @default(false)
+  isActive        Boolean      @default(true)
+  isFeatured      Boolean      @default(false)
+
+  // SEO
+  metaTitle       String?
+  metaDescription String?
+
+  models          BrandModel[]
+  boats           Boat[]
+  products        Product[]
+
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@index([slug])
+  @@index([isBoatBrand, isEngineBrand, isProductBrand])
+}
+
+model BrandModel {
+  id          String  @id @default(cuid())
+  name        String
+  slug        String  @unique
+  brandId     String
+  brand       Brand   @relation(fields: [brandId], references: [id])
+  yearStart   Int?
+  yearEnd     Int?
+  isActive    Boolean @default(true)
+
+  boats       Boat[]
+
+  @@index([brandId])
+}
+
+// =============================================
+// PRODUCTS (Alternative Products)
+// =============================================
+
+model Product {
+  id              String      @id @default(cuid())
+  slug            String      @unique
+  name            String
+  subtitle        String?
+  description     String      @db.Text
+  productType     ProductType
+  sku             String?     @unique
+  barcode         String?
+
+  // Price
+  price           Decimal     @db.Decimal(10, 2)
+  comparePrice    Decimal?    @db.Decimal(10, 2)
+  costPrice       Decimal?    @db.Decimal(10, 2)
+  currency        String      @default("USD")
+
+  // Inventory
+  stockQty        Int         @default(0)
+  lowStockAlert   Int         @default(5)
+  trackInventory  Boolean     @default(true)
+  allowBackorder  Boolean     @default(false)
+
+  // Shipping
+  weight          Decimal?    @db.Decimal(8, 2)
+  length          Decimal?    @db.Decimal(8, 2)
+  width           Decimal?    @db.Decimal(8, 2)
+  height          Decimal?    @db.Decimal(8, 2)
+  requiresShipping Boolean    @default(true)
+  shippingClass   String?
+
+  // Status
+  isActive        Boolean     @default(true)
+  isFeatured      Boolean     @default(false)
+  viewCount       Int         @default(0)
+
+  // Motor-specific fields
+  motorHp         Int?
+  motorStroke     EngineStroke?
+  motorFuelType   FuelType?
+  motorShaftLength String?
+
+  // Trailer-specific fields
+  trailerCapLbs   Int?
+  trailerLength   Decimal?    @db.Decimal(6, 2)
+  trailerAxles    Int?
+  trailerBrakes   Boolean?
+
+  // Electronics-specific fields
+  screenSize      Decimal?    @db.Decimal(4, 1)
+  frequency       String?
+  waterproof      String?
+
+  // SEO
+  metaTitle       String?
+  metaDescription String?
+  ogImage         String?
+
+  // Relations
+  categoryId      String
+  category        Category    @relation(fields: [categoryId], references: [id])
+  brandId         String?
+  brand           Brand?      @relation(fields: [brandId], references: [id])
+  images          ProductImage[]
+  tags            ProductTag[]
+  reviews         Review[]
+  orderItems      OrderItem[]
+  compatibility   ProductCompatibility[]
+  bundleItems     BundleItem[]
+
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@index([productType])
+  @@index([categoryId])
+  @@index([brandId])
+  @@index([price])
+  @@index([isActive, isFeatured])
+  @@index([sku])
+}
+
+model ProductImage {
+  id          String  @id @default(cuid())
+  productId   String
+  product     Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  url         String
+  alt         String?
+  sortOrder   Int     @default(0)
+  isPrimary   Boolean @default(false)
+
+  @@index([productId, sortOrder])
+}
+
+// Boat-Product compatibility
+model ProductCompatibility {
+  id              String  @id @default(cuid())
+  productId       String
+  product         Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  boatId          String?
+  boat            Boat?   @relation(fields: [boatId], references: [id], onDelete: Cascade)
+  // Generic compatibility (when not tied to specific boat)
+  minLengthFt     Decimal? @db.Decimal(6, 2)
+  maxLengthFt     Decimal? @db.Decimal(6, 2)
+  compatHullType  String?
+  compatEngineType String?
+  notes           String?
+
+  @@index([productId])
+  @@index([boatId])
+}
+
+// =============================================
+// BUNDLES
+// =============================================
+
+model Bundle {
+  id              String       @id @default(cuid())
+  name            String
+  slug            String       @unique
+  description     String?
+  discountPercent Decimal?     @db.Decimal(5, 2)
+  discountAmount  Decimal?     @db.Decimal(10, 2)
+  isActive        Boolean      @default(true)
+  startsAt        DateTime?
+  endsAt          DateTime?
+  image           String?
+
+  items           BundleItem[]
+
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+}
+
+model BundleItem {
+  id        String  @id @default(cuid())
+  bundleId  String
+  bundle    Bundle  @relation(fields: [bundleId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+  quantity  Int     @default(1)
+  sortOrder Int     @default(0)
+
+  @@index([bundleId])
+  @@index([productId])
+}
+
+// =============================================
+// REVIEWS
+// =============================================
+
+model Review {
+  id          String       @id @default(cuid())
+  rating      Int
+  title       String?
+  content     String       @db.Text
+  status      ReviewStatus @default(PENDING)
+  isVerified  Boolean      @default(false)
+
+  // Polymorphic: can review boat or product
+  boatId      String?
+  boat        Boat?        @relation(fields: [boatId], references: [id], onDelete: Cascade)
+  productId   String?
+  product     Product?     @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  userId      String
+  user        User         @relation(fields: [userId], references: [id])
+  images      ReviewImage[]
+
+  helpfulCount Int         @default(0)
+
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([boatId, status])
+  @@index([productId, status])
+  @@index([userId])
+  @@index([rating])
+}
+
+model ReviewImage {
+  id        String @id @default(cuid())
+  reviewId  String
+  review    Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  url       String
+  alt       String?
+
+  @@index([reviewId])
+}
+
+// =============================================
+// INQUIRIES / LEADS
+// =============================================
+
+model Inquiry {
+  id          String        @id @default(cuid())
+  status      InquiryStatus @default(NEW)
+  subject     String?
+  message     String        @db.Text
+  phone       String?
+  preferCall  Boolean       @default(false)
+
+  boatId      String
+  boat        Boat          @relation(fields: [boatId], references: [id])
+  buyerId     String
+  buyer       User          @relation("InquiryBuyer", fields: [buyerId], references: [id])
+  sellerId    String
+  seller      User          @relation("InquirySeller", fields: [sellerId], references: [id])
+
+  respondedAt DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([boatId])
+  @@index([buyerId])
+  @@index([sellerId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// =============================================
+// MESSAGING
+// =============================================
+
+model Message {
+  id          String        @id @default(cuid())
+  content     String        @db.Text
+  status      MessageStatus @default(SENT)
+
+  senderId    String
+  sender      User          @relation("MessageSender", fields: [senderId], references: [id])
+  receiverId  String
+  receiver    User          @relation("MessageReceiver", fields: [receiverId], references: [id])
+
+  // Context
+  boatId      String?
+  threadId    String?
+
+  readAt      DateTime?
+  createdAt   DateTime      @default(now())
+
+  @@index([senderId, receiverId])
+  @@index([threadId])
+  @@index([createdAt])
+}
+
+// =============================================
+// FAVORITES
+// =============================================
+
+model Favorite {
+  id      String @id @default(cuid())
+  userId  String
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  boatId  String
+  boat    Boat   @relation(fields: [boatId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, boatId])
+  @@index([userId])
+  @@index([boatId])
+}
+
+// =============================================
+// SEARCH ALERTS
+// =============================================
+
+model SearchAlert {
+  id          String         @id @default(cuid())
+  name        String?
+  userId      String
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  frequency   AlertFrequency @default(DAILY)
+  isActive    Boolean        @default(true)
+
+  // Search criteria (stored as JSON)
+  criteria    Json
+
+  lastSentAt  DateTime?
+  matchCount  Int            @default(0)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@index([userId, isActive])
+}
+
+// =============================================
+// PRICE HISTORY
+// =============================================
+
+model PriceHistory {
+  id      String   @id @default(cuid())
+  boatId  String
+  boat    Boat     @relation(fields: [boatId], references: [id], onDelete: Cascade)
+  price   Decimal  @db.Decimal(12, 2)
+  date    DateTime @default(now())
+
+  @@index([boatId, date])
+}
+
+// =============================================
+// ORDERS (Products only)
+// =============================================
+
+model Order {
+  id              String      @id @default(cuid())
+  orderNumber     String      @unique
+  status          OrderStatus @default(PENDING)
+  userId          String
+  user            User        @relation(fields: [userId], references: [id])
+
+  // Pricing
+  subtotal        Decimal     @db.Decimal(10, 2)
+  taxAmount       Decimal     @db.Decimal(10, 2) @default(0)
+  shippingAmount  Decimal     @db.Decimal(10, 2) @default(0)
+  discountAmount  Decimal     @db.Decimal(10, 2) @default(0)
+  total           Decimal     @db.Decimal(10, 2)
+  currency        String      @default("USD")
+
+  // Stripe
+  stripePaymentId   String?
+  stripeCustomerId  String?
+
+  // Shipping address
+  shipName        String?
+  shipAddress     String?
+  shipCity        String?
+  shipState       String?
+  shipCountry     String?
+  shipZipCode     String?
+  shipPhone       String?
+
+  // Tracking
+  trackingNumber  String?
+  trackingUrl     String?
+  shippedAt       DateTime?
+  deliveredAt     DateTime?
+
+  notes           String?     @db.Text
+  items           OrderItem[]
+
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([orderNumber])
+  @@index([createdAt])
+}
+
+model OrderItem {
+  id          String  @id @default(cuid())
+  orderId     String
+  order       Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product @relation(fields: [productId], references: [id])
+  quantity    Int
+  unitPrice   Decimal @db.Decimal(10, 2)
+  totalPrice  Decimal @db.Decimal(10, 2)
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+// =============================================
+// BANNERS
+// =============================================
+
+model Banner {
+  id          String         @id @default(cuid())
+  title       String
+  subtitle    String?
+  image       String
+  mobileImage String?
+  linkUrl     String?
+  linkText    String?
+  position    BannerPosition
+  sortOrder   Int            @default(0)
+  isActive    Boolean        @default(true)
+  startsAt    DateTime?
+  endsAt      DateTime?
+
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@index([position, isActive])
+}
+
+// =============================================
+// BLOG POSTS
+// =============================================
+
+model BlogPost {
+  id              String   @id @default(cuid())
+  title           String
+  slug            String   @unique
+  excerpt         String?
+  content         String   @db.Text
+  coverImage      String?
+  author          String?
+  isPublished     Boolean  @default(false)
+  isFeatured      Boolean  @default(false)
+  blogCategory    String?
+  readTimeMinutes Int?
+  viewCount       Int      @default(0)
+
+  // SEO
+  metaTitle       String?
+  metaDescription String?
+  ogImage         String?
+  canonicalUrl    String?
+  keywords        String?
+
+  publishedAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([slug])
+  @@index([isPublished, isFeatured])
+  @@index([blogCategory])
+  @@index([publishedAt])
+}
+
+// =============================================
+// MEDIA LIBRARY
+// =============================================
+
+model Media {
+  id          String   @id @default(cuid())
+  filename    String
+  mimeType    String
+  filesize    Int
+  url         String
+  thumbnailUrl String?
+  alt         String?
+  caption     String?
+  width       Int?
+  height      Int?
+  folder      String?  @default("general")
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([folder])
+  @@index([mimeType])
+}
+
+// =============================================
+// SITE SETTINGS (Singleton-like)
+// =============================================
+
+model SiteSetting {
+  id          String @id @default(cuid())
+  key         String @unique
+  value       String @db.Text
+  group       String @default("general")
+  description String?
+
+  updatedAt   DateTime @updatedAt
+
+  @@index([group])
+}
+
+// =============================================
+// AUDIT LOG
+// =============================================
+
+model AuditLog {
+  id          String      @id @default(cuid())
+  action      AuditAction
+  entity      String
+  entityId    String
+  userId      String?
+  user        User?       @relation(fields: [userId], references: [id])
+  oldData     Json?
+  newData     Json?
+  ipAddress   String?
+  userAgent   String?
+
+  createdAt   DateTime    @default(now())
+
+  @@index([entity, entityId])
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+}
